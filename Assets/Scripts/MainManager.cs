@@ -3,6 +3,11 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
+using System.IO;
+using System;
+using TMPro;
+using TMPro.EditorUtilities;
+using UnityEditor.UI;
 
 public class MainManager : MonoBehaviour
 {
@@ -12,20 +17,30 @@ public class MainManager : MonoBehaviour
 
     public Text ScoreText;
     public GameObject GameOverText;
-    
+
+    public Text BestScoreText;
+    private int bestPoint;
+
+    public TMP_InputField PlayerNameText;
+    public GameObject PlayerName;
+
     private bool m_Started = false;
     private int m_Points;
-    
+
     private bool m_GameOver = false;
 
-    
+    public static MainManager instance;
     // Start is called before the first frame update
+    
     void Start()
     {
+        LoadData();
+        Time.timeScale = 1.0f;
+        BestScoreText.text = "Best Score: " + PlayerNameText.text + " " + bestPoint;
         const float step = 0.6f;
         int perLine = Mathf.FloorToInt(4.0f / step);
-        
-        int[] pointCountArray = new [] {1,1,2,2,5,5};
+
+        int[] pointCountArray = new[] { 1, 1, 2, 2, 5, 5 };
         for (int i = 0; i < LineCount; ++i)
         {
             for (int x = 0; x < perLine; ++x)
@@ -45,7 +60,7 @@ public class MainManager : MonoBehaviour
             if (Input.GetKeyDown(KeyCode.Space))
             {
                 m_Started = true;
-                float randomDirection = Random.Range(-1.0f, 1.0f);
+                float randomDirection = UnityEngine.Random.Range(-1.0f, 1.0f);
                 Vector3 forceDir = new Vector3(randomDirection, 1, 0);
                 forceDir.Normalize();
 
@@ -55,22 +70,62 @@ public class MainManager : MonoBehaviour
         }
         else if (m_GameOver)
         {
-            if (Input.GetKeyDown(KeyCode.Space))
+            if (Input.GetKeyDown(KeyCode.Return))
             {
                 SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
+                SaveData();
             }
         }
     }
-
     void AddPoint(int point)
     {
         m_Points += point;
         ScoreText.text = $"Score : {m_Points}";
     }
-
+    void BestPoint()
+    {
+        if (bestPoint < m_Points)
+        {
+            bestPoint = m_Points;
+            PlayerName.SetActive(true);
+            SaveData();
+        }
+        else
+        {
+            GameOverText.SetActive(true);
+        }
+        BestScoreText.text = "Best Score: " + PlayerNameText.text + " " + bestPoint;
+    }
     public void GameOver()
     {
         m_GameOver = true;
-        GameOverText.SetActive(true);
+        BestPoint();
+        Time.timeScale = 0;
     }
+    public void SaveData()
+    {
+        SaveData data = new SaveData();
+        data.highScore = bestPoint;
+        data.highScorePlayerName = PlayerNameText.text;
+        Debug.Log(data.highScorePlayerName);
+        string json = JsonUtility.ToJson(data);
+        File.WriteAllText(Application.persistentDataPath + "/savefile.json", json);
+    }
+    public void LoadData()
+    {
+        string path = Application.persistentDataPath + "/savefile.json";
+        if(File.Exists(path))
+        {
+            string json = File.ReadAllText(path);
+            SaveData data = JsonUtility.FromJson<SaveData>(json);
+            bestPoint = data.highScore;
+            PlayerNameText.text = data.highScorePlayerName;
+        }
+    }
+}   
+[Serializable]
+class SaveData
+{
+    public int highScore;
+    public string highScorePlayerName;
 }
